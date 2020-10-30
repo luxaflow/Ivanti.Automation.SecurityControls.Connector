@@ -1,6 +1,10 @@
-﻿# Agents - List
+# Agents - List
 # for Ivanti Security Controls
 # version 2019-12
+#
+# Change Log
+# 2019-12: First version
+# 2020-11: update for use of encrypted passwords
 #
 # patrick.kaak@ivanti.com
 # @pkaak
@@ -10,12 +14,30 @@ $IIDoutput = '$[IIDOutput]'
 
 #User variables
 $username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
-$password = '^[ISeC Serviceaccount Password]' #ISeC Credential password
+$password = "$[Password]" #ISeC Credential password
+$securePW = "$[SecurePW]"
 $servername = '^[ISeC Servername]' #ISeC console servername
 $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 
 #System variables
-$EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+if ($securePW -eq '0') 
+{
+  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+}
+else 
+{
+  try 
+  {
+    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
+  }
+  catch 
+  {
+    $ErrorMessage = $_.Exception.Message
+    Write-Host -Object $ErrorMessage
+    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
+    exit(403)
+  }
+}
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
 
 
@@ -31,7 +53,7 @@ while ($finished -eq 0)
   #Request body
   $url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/policies?count=1000&start='+$start
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -84,7 +106,7 @@ while ($finished -eq 0)
   #Request body
   $url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/agents?count=1000&start='+$start
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $url -ContentType 'application/json' | ConvertTo-Json -Depth 99
