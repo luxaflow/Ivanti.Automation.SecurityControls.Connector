@@ -24,7 +24,7 @@ $WhereAreWe = 0
 
 if ($securePW -eq '0') 
 {
-  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+  $EncryptPassword = ConvertTo-SecureString $password -AsPlainText -Force
 }
 else 
 {
