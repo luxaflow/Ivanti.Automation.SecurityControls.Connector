@@ -1,17 +1,19 @@
-﻿# MachineGroups - Add Endpoint
+# MachineGroups - Add Endpoint
 # for Ivanti Security Controls
-# version 2019-08
+# version 2020-11
 #
 # changelog
 # Aug 2019 - Better search for machinegroupid
 # Dec 2019 - Add possibility to add credentials to machine
+# 2020-11: update for use of encrypted passwords
 #
 # patrick.kaak@ivanti.com
 # @pkaak
 
 #User variables
 $username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
-$password = '^[ISeC Serviceaccount Password]' #ISeC Credential password
+$password = "$[Password]" #ISeC Credential password
+$securePW = "$[SecurePW]"
 $servername = '^[ISeC Servername]' #ISeC console servername
 $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 $CredentialsName = '$[CredentialsName]'
@@ -23,7 +25,24 @@ $Excluded = "$[Exclude]"
 
 #System variable
 
-$EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+if ($securePW -eq '0') 
+{
+  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+}
+else 
+{
+  try 
+  {
+    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
+  }
+  catch 
+  {
+    $ErrorMessage = $_.Exception.Message
+    Write-Host -Object $ErrorMessage
+    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
+    exit(403)
+  }
+}
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
 $output = ''
 $CredentialID = '' 
@@ -192,7 +211,7 @@ if ($CredentialsName -ne '')
 
   #Request body
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -237,7 +256,7 @@ if (-not $MachineGroupID)
 {
   $url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups?name=' + $MachineGroupName
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -253,7 +272,7 @@ if (-not $MachineGroupID)
     exit(1)
   }
 
-  #REST API was OK. Go on
+  #REST API was OK. Go futher
   $result = ConvertFrom-Json -InputObject $result
 
   #Results
@@ -290,7 +309,7 @@ $body = @{
   })
 } | ConvertTo-Json -Depth 99
 
-#Connect to ISeC REST API
+#Speak to ISeC REST API
 try 
 {
   $result = Invoke-RestMethod -Method Post -Body $body -Credential $cred -Uri $url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -306,7 +325,7 @@ catch
   exit(2)
 }
 
-#REST API was OK. Go on
+#REST API was OK. Go futher
 $result = ConvertFrom-Json -InputObject $result
 
 #Results
