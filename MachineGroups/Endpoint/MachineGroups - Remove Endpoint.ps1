@@ -1,16 +1,18 @@
-﻿# MachineGroup - Remove Endpoint
+# MachineGroup - Remove Endpoint
 # for Ivanti Security Controls
-# version 2019-08
+# version 2020-11
 #
 # Changelog:
 # Aug 2019 - Update script to make better use of API and work with more than 50 machines in a group.
+# 2020-11: update for use of encrypted passwords
 #
 # patrick.kaak@ivanti.com
 # @pkaak
 
 #User variables
 $username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
-$password = '^[ISeC Serviceaccount Password]' #ISeC Credential password
+$password = "$[Password]" #ISeC Credential password
+$securePW = "$[SecurePW]"
 $servername = '^[ISeC Servername]' #ISeC console servername
 $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 
@@ -20,7 +22,24 @@ $MachineGroupID = "$[MachineGroup ID]"
 
 
 #System variables
-$EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+if ($securePW -eq '0') 
+{
+  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+}
+else 
+{
+  try 
+  {
+    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
+  }
+  catch 
+  {
+    $ErrorMessage = $_.Exception.Message
+    Write-Host -Object $ErrorMessage
+    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
+    exit(403)
+  }
+}
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
 $MachineID = ''
 $output = ''
@@ -34,7 +53,7 @@ if (-not $MachineGroupID)
 {
   $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups?name=' + $MachineGroupName
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -83,7 +102,7 @@ while ($finished -eq 0)
 {
   $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups/'+ $MachineGroupID + '/discoveryFilters?count=50&start='+$start
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -138,7 +157,7 @@ if ($found -eq 0)
 ## Part 3: Delete machine from Machinegroup
 $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups/'+ $MachineGroupID + '/discoveryFilters/' + $MachineID
 
-#Connect to ISeC REST API
+#Speak to ISeC REST API
 try 
 {
   $result = Invoke-RestMethod -Method Delete -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
