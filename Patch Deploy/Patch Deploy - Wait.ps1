@@ -1,103 +1,142 @@
 # Operations - Wait (PatchDeploy)
 # for Ivanti Security Controls
-# version 2020-5
+# version 2020-11
 # 
 # Check Operations from ISeC console
+#
+# Updates:
+# May 2020 - Updated to workaround an Operations API bug that looks like deployment finished after a failed download
+# 2020-11: update for use of encrypted passwords
 #
 # patrick.kaak@ivanti.com
 # @pkaak
 
 #User variables
-$username = "^[ISeC Serviceaccount Username]" #ISeC Credential Username
-$password = "^[ISeC Serviceaccount Password]" #ISeC Credential password
-$servername = "^[ISeC Servername]" #ISeC console servername
-$serverport = "^[ISeC REST API portnumber]" #ISeC REST API portnumber
+$username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
+$password = "$[Password]" #ISeC Credential password
+$securePW = "$[SecurePW]"
+$servername = '^[ISeC Servername]' #ISeC console servername
+$serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 
 $ISEC_ID = "$[PatchDeployID]"
-$CheckSeconds ="$[Check every x seconds]"
+$CheckSeconds = "$[Check every x seconds]"
 $Logtime = "$[Log datetime and status]"
 
 #System variables
-$Url = "https://"+$servername+":"+$serverport+"/st/console/api/v1.0/operations/"+$ISEC_ID
-$EncryptPassword = ConvertTo-SecureString $password -AsPlainText -Force
-$cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $username, $encryptpassword
-$Running = ""
-$Operations = "" #What is the endresult of operations
+$Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/operations/'+$ISEC_ID
+if ($securePW -eq '0') 
+{
+  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+}
+else 
+{
+  try 
+  {
+    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
+  }
+  catch 
+  {
+    $ErrorMessage = $_.Exception.Message
+    Write-Host -Object $ErrorMessage
+    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
+    exit(403)
+  }
+}
+$cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
+$Running = ''
+$Operations = '' #What is the endresult of operations
 
 # We are going to WAIT till the Operation is finished.
 # So do a loop till result.status <> Running
 
-do { 
-    #Connect to ISeC REST API
-    try {
-        $result = Invoke-RestMethod -Method Get -Credential $cred -URI $Url -ContentType "application/json" | ConvertTo-Json -Depth 99
-    } catch {
-        # Dig into the exception to get the Response details.
-        # Note that value__ is not a typo.
-        Write-Host "Error (OperationsWait)"
-        Write-Host "StatusCode:" $_.Exception.Response.StatusCode.value__ 
-        Write-Host "StatusDescription:" $_.Exception.Response.StatusDescription
-        Write-Host "Error Message:" $_.ErrorDetails.Message
-        exit (1)
-    }
+do 
+{ 
+  #Connect to ISeC REST API
+  try 
+  {
+    $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType "application/json" | ConvertTo-Json -Depth 99
+  }
+  catch 
+  {
+    # Dig into the exception to get the Response details.
+    # Note that value__ is not a typo.
+    Write-Host -Object "Error (OperationsWait)"
+    Write-Host "StatusCode:" $_.Exception.Response.StatusCode.value__ 
+    Write-Host "StatusDescription:" $_.Exception.Response.StatusDescription
+    Write-Host "Error Message:" $_.ErrorDetails.Message
+    exit (1)
+  }
 
-    #REST API was OK. Go on
-    $result = ConvertFrom-Json $result
-    if ($logtime -eq "True") { 
-        $datetime = get-date -format "MM/dd/yyyy HH:mm:ss"
-        write-host $datetime "Operations" $result.status
-        }
-    $running = $result.status
+  #REST API was OK. Go on
+  $result = ConvertFrom-Json -InputObject $result
+  if ($Logtime -eq "True") 
+  { 
+    $datetime = Get-Date -Format "MM/dd/yyyy HH:mm:ss"
+    Write-Host $datetime "Operations" $result.status
+  }
+  $Running = $result.status
 
-    if ($running -eq "Running") { 
-        start-sleep -s $CheckSeconds # Do not burden the REST API too much if we are still busy scanning
-        }
-} until ($running -ne "Running")
+  if ($Running -eq "Running") 
+  {
+    Start-Sleep -Seconds $CheckSeconds # Do not burden the REST API too much if we are still busy scanning
+  }
+}
+until ($Running -ne 'Running')
 
 $Operations = $Running
 
 #It looks like we are finished
 #Do a double check on this
 
-$Url = "https://"+$servername+":"+$serverport+"/st/console/api/v1.0/patch/deployments/"+$ISEC_ID
-$Running = ""
+$Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/patch/deployments/'+$ISEC_ID
+$Running = ''
 
 # We are going to WAIT till the Deployment is finished.
 # So do a loop till result.isCompleted = True
 
-do { 
-    #Connect to ISeC REST API
-    try {
-        $result = Invoke-RestMethod -Method Get -Credential $cred -URI $Url -ContentType "application/json" | ConvertTo-Json -Depth 99
-    } catch {
-        # Dig into the exception to get the Response details.
-        # Note that value__ is not a typo.
-        Write-Host "Error (DeploymentsCheck)"
-        Write-Host "StatusCode:" $_.Exception.Response.StatusCode.value__ 
-        Write-Host "StatusDescription:" $_.Exception.Response.StatusDescription
-        Write-Host "Error Message:" $_.ErrorDetails.Message
-        exit (3)
-    }
+do 
+{ 
+  #Connect to ISeC REST API
+  try 
+  {
+    $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
+  }
+  catch 
+  {
+    # Dig into the exception to get the Response details.
+    # Note that value__ is not a typo.
+    Write-Host -Object 'Error (DeploymentsCheck)'
+    Write-Host 'StatusCode:' $_.Exception.Response.StatusCode.value__ 
+    Write-Host 'StatusDescription:' $_.Exception.Response.StatusDescription
+    Write-Host 'Error Message:' $_.ErrorDetails.Message
+    exit (3)
+  }
 
-    #REST API was OK. Go on
-    $result = ConvertFrom-Json $result
-    if ($logtime -eq "True") { 
-        $datetime = get-date -format "MM/dd/yyyy HH:mm:ss"
-        write-host $datetime "DeploymentCheck, we are finished:" $result.isComplete
-        }
-    $running = $result.isComplete
+  #REST API was OK. Go on
+  $result = ConvertFrom-Json -InputObject $result
+  if ($Logtime -eq 'True') 
+  { 
+    $datetime = Get-Date -Format 'MM/dd/yyyy HH:mm:ss'
+    Write-Host $datetime 'DeploymentCheck, we are finished:' $result.isComplete
+  }
+  $Running = $result.isComplete
 
-    if ($running -ne "True") { 
-        start-sleep -s $CheckSeconds # Do not burden the REST API too much if we are still busy scanning
-        }
-} until ($running -eq "True")
+  if ($Running -ne 'True') 
+  {
+    Start-Sleep -Seconds $CheckSeconds # Do not burden the REST API too much if we are still busy scanning
+  }
+}
+until ($Running -eq 'True')
 
 
 #We are finished
-if ($Operations -eq "Succeeded")  {
-    write-host $Operations
-    exit(0)
-} else {
-    write-host $Operations
-    exit(2)
+if ($Operations -eq 'Succeeded')  
+{
+  Write-Host -Object $Operations
+  exit(0)
+}
+else 
+{
+  Write-Host -Object $Operations
+  exit(2)
 }
