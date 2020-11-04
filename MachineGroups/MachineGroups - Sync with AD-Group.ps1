@@ -1,24 +1,21 @@
-﻿# Sync AD-Group to ISeC Machinegroup
+# Sync AD-Group to ISeC Machinegroup
 # for Ivanti Security Controls
-# version 2019-08
+# version 2020-11
 #
 # Changelog: 
 # july 2019 - first version.
 # Aug 2019 - Update to make better use of API
+# 2020-11: update for use of encrypted passwords
 #
 # patrick.kaak@ivanti.com
 # @pkaak
-
-# Requirements: 
-# - ISeC trusted root certificated imported on server to run the task
-# - Users and Computer (AD) powershell tools should be installed on the server running the task
-
 
 $ADGroupName = "$[AD-groupname]"
 $Machinegroupname = "$[Machinegroupname]"
 
 $username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
-$password = '^[ISeC Serviceaccount Password]' #ISeC Credential password
+$password = "$[Password]" #ISeC Credential password
+$securePW = "$[SecurePW]"
 $servername = '^[ISeC Servername]' #ISeC console servername
 $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 
@@ -26,7 +23,7 @@ $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 #####################################
 try 
 {
-  $result = get-adgroup -Identity $ADGroupName
+  $result = Get-ADGroup -Identity $ADGroupName
 }
 catch
 
@@ -37,7 +34,7 @@ catch
 } 
 catch 
 { 
-  Write-Output -InputObject 'Error: Something else bad happend while checking Active Directory' 
+  Write-Output -InputObject 'Error: Something bad happend while checking Active Directory' 
   Exit (1)
 } 
 
@@ -64,12 +61,29 @@ $MachineGroupID = ''
 
 #System variables
 $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups?name=' + $Machinegroupname
-$EncryptPassword = ConvertTo-SecureString $password -AsPlainText -Force
+if ($securePW -eq '0') 
+{
+  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+}
+else 
+{
+  try 
+  {
+    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
+  }
+  catch 
+  {
+    $ErrorMessage = $_.Exception.Message
+    Write-Host -Object $ErrorMessage
+    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
+    exit(403)
+  }
+}
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
 $output = ''
 
 #Request body
-#Connect to ISeC REST API
+#Speak to ISeC REST API
 try 
 {
   $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -117,7 +131,7 @@ if ($found -eq 0)
     Description = $BodyMachineGroupDescription
   } | ConvertTo-Json -Depth 99
 
-  #Connect to ISeC REST API
+  #Speak to ISeC REST API
   try 
   {
     $result = Invoke-RestMethod -Method Post -Credential $cred -Uri $Url -Body $Body -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -241,7 +255,7 @@ if ( $ComputerAdd.count -ne 0 )
       })
     } | ConvertTo-Json -Depth 99
 
-    #Connect to ISeC REST API
+    #Speak to ISeC REST API
     try 
     {
       $result = Invoke-RestMethod -Method Post -Body $Body -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -282,7 +296,7 @@ if ( $ComputerDelete.count -ne 0 )
       #Find MachineID
       $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups/'+ $MachineGroupID + '/discoveryFilters?count=50&start=' + $start
 
-      #Connect to ISeC REST API
+      #Speak to ISeC REST API
       try 
       {
         $result = Invoke-RestMethod -Method Get -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
@@ -338,7 +352,7 @@ if ( $ComputerDelete.count -ne 0 )
     ## Delete machine from Machinegroup
     $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups/'+ $MachineGroupID + '/discoveryFilters/' + $machineid
 
-    #Connect to ISeC REST API
+    #Speak to ISeC REST API
     try 
     {
       $result = Invoke-RestMethod -Method Delete -Credential $cred -Uri $Url -ContentType 'application/json' | ConvertTo-Json -Depth 99
