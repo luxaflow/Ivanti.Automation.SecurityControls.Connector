@@ -56,14 +56,13 @@ for ($countmachine = 0; $countmachine -le $result.count-1; $countmachine++)
     #count patches of machine
 
     $item = New-Object -TypeName PSObject
-    $item | Add-Member -TypeName NoteProperty -Name 'endpointname' -Value $result.value[$countmachine].name
-    $item | Add-Member -TypeName NoteProperty -Name 'bulletin' -Value $result.value[$countmachine].patchstates[$countpatch].bulletinID
-    $item | Add-Member -TypeName NoteProperty -Name 'kb' -Value $result.value[$countmachine].patchstates[$countpatch].kb
-    $item | Add-Member -TypeName NoteProperty -Name 'overallstate' -Value $result.value[$countmachine].patchstates[$countpatch].overallStateDescription
-    $item | Add-Member -TypeName NoteProperty -Name 'statusdescription' -Value $result.value[$countmachine].patchstates[$countpatch].statusdescription
-    $item | Add-Member -TypeName NoteProperty -Name 'startdate' -Value $result.value[$countmachine].patchstates[$countpatch].startedon
-    $item | Add-Member -TypeName NoteProperty -Name 'enddate' -Value $result.value[$countmachine].patchstates[$countpatch].finishedon
-
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'endpointname' -Value $result.value[$countmachine].name
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'bulletin' -Value $result.value[$countmachine].patchstates[$countpatch].bulletinID
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'kb' -Value $result.value[$countmachine].patchstates[$countpatch].kb
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'overallstate' -Value $result.value[$countmachine].patchstates[$countpatch].overallStateDescription
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'statusdescription' -Value $result.value[$countmachine].patchstates[$countpatch].statusdescription
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'startdate' -Value $result.value[$countmachine].patchstates[$countpatch].startedon
+    $item | Add-Member -MemberType NoteProperty -TypeName NoteProperty -Name 'enddate' -Value $result.value[$countmachine].patchstates[$countpatch].finishedon
     $PatchDetailedReport += $item
   }
 }
