@@ -5,6 +5,7 @@
 # Changelog:
 # 2019-01: first version
 # 2020-11: update for use of encrypted passwords
+# 2020-11.12: updated very strange error (frankly, based on the error, this script could never have worked)
 #
 # patrick.kaak@ivanti.com
 # @pkaak
