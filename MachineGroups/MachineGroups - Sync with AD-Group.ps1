@@ -1,6 +1,6 @@
 # Sync AD-Group to ISeC Machinegroup
 # for Ivanti Security Controls
-# version 2020-11
+# version 2020-11.12
 #
 # Changelog: 
 # july 2019 - first version.
@@ -13,9 +13,8 @@
 $ADGroupName = "$[AD-groupname]"
 $Machinegroupname = "$[Machinegroupname]"
 
-$username = '^[ISeC Serviceaccount Username]' #ISeC Credential Username
-$password = "$[Password]" #ISeC Credential password
-$securePW = "$[SecurePW]"
+$username = Get-ResParam -Name Username #ISeC Credential Username
+$password = Get-ResParam -Name Password #ISeC Credential password
 $servername = '^[ISeC Servername]' #ISeC console servername
 $serverport = '^[ISeC REST API portnumber]' #ISeC REST API portnumber
 
@@ -61,24 +60,7 @@ $MachineGroupID = ''
 
 #System variables
 $Url = 'https://'+$servername+':'+$serverport+'/st/console/api/v1.0/machinegroups?name=' + $Machinegroupname
-if ($securePW -eq '0') 
-{
-  $EncryptPassword = ConvertTo-SecureString -String $password -AsPlainText -Force
-}
-else 
-{
-  try 
-  {
-    $EncryptPassword = ConvertTo-SecureString $password -ErrorAction Stop
-  }
-  catch 
-  {
-    $ErrorMessage = $_.Exception.Message
-    Write-Host -Object $ErrorMessage
-    Write-Host -Object 'Error 403: Did you run this task on the same machine which encrypted the password?'
-    exit(403)
-  }
-}
+$EncryptPassword = $password
 $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $EncryptPassword
 $output = ''
 
